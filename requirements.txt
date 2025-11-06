@@ -1,0 +1,20 @@
+# Core ML/AI Dependencies
+torch>=2.0.0
+transformers>=4.40.0
+huggingface_hub>=0.20.0
+accelerate>=0.25.0
+flash-attn>=2.5.0
+
+# Vision & Image Processing
+Pillow>=10.0.0
+qwen-vl-utils>=0.0.8
+
+# PDF Processing
+PyMuPDF>=1.23.0
+
+# Web Interface
+gradio>=4.19.0
+
+# Utilities
+requests>=2.31.0
+numpy>=1.24.0
