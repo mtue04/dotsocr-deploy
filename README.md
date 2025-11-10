@@ -24,6 +24,53 @@ A comprehensive web application for extracting text and layout information from 
 
 ### Installation
 
+#### 🐧 Linux GPU Server (A4000/A6000) - Automated Setup
+
+For fresh Linux GPU servers, use our one-click installer:
+
+```bash
+# One-liner installation (recommended)
+curl -fsSL https://raw.githubusercontent.com/mtue04/dotsocr-deploy/main/install.sh | bash
+```
+
+Or manual setup:
+```bash
+# Clone repository
+git clone https://github.com/mtue04/dotsocr-deploy.git
+cd dotsocr-deploy
+
+# Make scripts executable
+chmod +x auto_setup.sh run.sh
+
+# Run automated setup (installs Python, CUDA, dependencies, etc.)
+./auto_setup.sh
+
+# Start application
+./run.sh
+```
+
+The `auto_setup.sh` script will automatically:
+- Update system packages
+- Install Python 3, Git, and essential tools
+- Install NVIDIA drivers and CUDA toolkit (if needed)
+- Clone the repository
+- Create virtual environment
+- Install PyTorch with GPU support
+- Install all dependencies
+- Optionally start the application
+
+#### 🪟 Windows - Quick Setup
+
+```batch
+# Run setup script
+setup.bat
+
+# Start application
+run.bat
+```
+
+#### 🔧 Manual Installation (All Platforms)
+
 1. **Clone or download this repository**
 
 ```bash
