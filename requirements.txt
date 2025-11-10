@@ -1,9 +1,10 @@
 # Core ML/AI Dependencies
-torch>=2.0.0
-transformers>=4.40.0
+torch==2.7.0
+torchvision==0.22.0
+transformers==4.51.3
 huggingface_hub>=0.20.0
 accelerate>=0.25.0
-flash-attn>=2.5.0
+https://github.com/mjun0812/flash-attention-prebuild-wheels/releases/download/v0.0.8/flash_attn-2.7.4.post1+cu126torch2.7-cp310-cp310-linux_x86_64.whl
 
 # Vision & Image Processing
 Pillow>=10.0.0

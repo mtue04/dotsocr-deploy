@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF to Image Rectangle Selector</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        
+        .upload-area {
+            background: white;
+            border: 2px dashed #ccc;
+            border-radius: 8px;
+            padding: 60px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .upload-area:hover {
+            background: #fafafa;
+            border-color: #999;
+        }
+        
+        .upload-area.hidden {
+            display: none;
+        }
+        
+        .main-content {
+            display: none;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+        }
+        
+        .main-content.active {
+            display: grid;
+        }
+        
+        .canvas-area {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .controls {
+            margin-bottom: 15px;
+        }
+        
+        button {
+            padding: 10px 20px;
+            margin-right: 10px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        
+        .btn-clear {
+            background: #ef4444;
+            color: white;
+        }
+        
+        .btn-clear:hover {
+            background: #dc2626;
+        }
+        
+        .btn-new {
+            background: #6b7280;
+            color: white;
+        }
+        
+        .btn-new:hover {
+            background: #4b5563;
+        }
+        
+        .btn-copy {
+            background: #3b82f6;
+            color: white;
+            width: 100%;
+        }
+        
+        .btn-copy:hover {
+            background: #2563eb;
+        }
+        
+        .btn-add {
+            background: #10b981;
+            color: white;
+            width: 100%;
+            margin-top: 10px;
+        }
+        
+        .btn-add:hover {
+            background: #059669;
+        }
+        
+        .canvas-wrapper {
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            overflow: auto;
+            max-height: 700px;
+        }
+        
+        canvas {
+            cursor: crosshair;
+            display: block;
+            max-width: 100%;
+        }
+        
+        .sidebar {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .sidebar h2 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #333;
+        }
+        
+        .manual-input {
+            background: #f0f9ff;
+            border: 1px solid #bfdbfe;
+            border-radius: 4px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .manual-input h3 {
+            font-size: 14px;
+            margin-bottom: 10px;
+            color: #1e40af;
+        }
+        
+        .input-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+        
+        .input-group {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .input-group label {
+            font-size: 12px;
+            color: #374151;
+            margin-bottom: 4px;
+        }
+        
+        .input-group input {
+            padding: 6px 8px;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            font-size: 13px;
+            font-family: monospace;
+        }
+        
+        .input-group input:focus {
+            outline: none;
+            border-color: #3b82f6;
+        }
+        
+        .rectangles-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .rect-item {
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 4px;
+            padding: 12px;
+            margin-bottom: 10px;
+        }
+        
+        .rect-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .rect-id {
+            font-weight: bold;
+            color: #3b82f6;
+        }
+        
+        .btn-delete {
+            background: transparent;
+            color: #ef4444;
+            padding: 4px 8px;
+            margin: 0;
+            font-size: 16px;
+        }
+        
+        .btn-delete:hover {
+            color: #dc2626;
+        }
+        
+        .rect-coords {
+            font-family: monospace;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+        
+        .rect-size {
+            font-size: 11px;
+            color: #6b7280;
+            margin-top: 6px;
+        }
+        
+        .empty-state {
+            color: #9ca3af;
+            font-size: 14px;
+        }
+        
+        .help-text {
+            color: #6b7280;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+        
+        input[type="file"] {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>PDF to Image Rectangle Selector</h1>
+        
+        <div class="upload-area" id="uploadArea">
+            <h2>📄 Click để tải file PDF</h2>
+            <p style="color: #666; margin-top: 10px;">Chỉ hỗ trợ file PDF (1 trang)</p>
+            <input type="file" id="fileInput" accept=".pdf">
+        </div>
+        
+        <div class="main-content" id="mainContent">
+            <div class="canvas-area">
+                <div class="controls">
+                    <button class="btn-clear" onclick="clearAll()">Xóa tất cả</button>
+                    <button class="btn-new" onclick="loadNewFile()">Tải file mới</button>
+                </div>
+                
+                <div class="canvas-wrapper">
+                    <canvas id="canvas"></canvas>
+                </div>
+                
+                <p class="help-text">Kéo chuột để vẽ hình chữ nhật trên ảnh hoặc nhập tọa độ thủ công bên phải</p>
+            </div>
+            
+            <div class="sidebar">
+                <div class="manual-input">
+                    <h3>✏️ Nhập tọa độ thủ công</h3>
+                    <div class="input-grid">
+                        <div class="input-group">
+                            <label>x1:</label>
+                            <input type="number" id="inputX1" placeholder="0">
+                        </div>
+                        <div class="input-group">
+                            <label>y1:</label>
+                            <input type="number" id="inputY1" placeholder="0">
+                        </div>
+                        <div class="input-group">
+                            <label>x2:</label>
+                            <input type="number" id="inputX2" placeholder="0">
+                        </div>
+                        <div class="input-group">
+                            <label>y2:</label>
+                            <input type="number" id="inputY2" placeholder="0">
+                        </div>
+                    </div>
+                    <button class="btn-add" onclick="addManualRectangle()">Thêm hình chữ nhật</button>
+                </div>
+                
+                <h2>Tọa độ các hình chữ nhật (<span id="rectCount">0</span>)</h2>
+                
+                <div class="rectangles-list" id="rectanglesList">
+                    <p class="empty-state">Chưa có hình chữ nhật nào</p>
+                </div>
+                
+                <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e5e7eb;">
+                    <button class="btn-copy" onclick="copyToClipboard()">Copy JSON</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        
+        let canvas = document.getElementById('canvas');
+        let ctx = canvas.getContext('2d');
+        let rectangles = [];
+        let isDrawing = false;
+        let startPoint = null;
+        let currentRect = null;
+        let imageData = null;
+        
+        document.getElementById('uploadArea').addEventListener('click', () => {
+            document.getElementById('fileInput').click();
+        });
+        
+        document.getElementById('fileInput').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file || file.type !== 'application/pdf') {
+                alert('Vui lòng chọn file PDF');
+                return;
+            }
+            await convertPDFToImage(file);
+        });
+        
+        async function convertPDFToImage(file) {
+            try {
+                const arrayBuffer = await file.arrayBuffer();
+                const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                const page = await pdf.getPage(1);
+                
+                const scale = 2;
+                const viewport = page.getViewport({ scale });
+                
+                canvas.width = viewport.width;
+                canvas.height = viewport.height;
+                
+                await page.render({ canvasContext: ctx, viewport }).promise;
+                
+                imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                
+                document.getElementById('uploadArea').classList.add('hidden');
+                document.getElementById('mainContent').classList.add('active');
+                
+                rectangles = [];
+                updateRectanglesList();
+            } catch (error) {
+                console.error('Lỗi chuyển đổi PDF:', error);
+                alert('Không thể chuyển đổi PDF. Vui lòng thử lại.');
+            }
+        }
+        
+        function getMousePos(e) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            
+            return {
+                x: (e.clientX - rect.left) * scaleX,
+                y: (e.clientY - rect.top) * scaleY
+            };
+        }
+        
+        canvas.addEventListener('mousedown', (e) => {
+            if (!imageData) return;
+            const pos = getMousePos(e);
+            isDrawing = true;
+            startPoint = pos;
+            currentRect = null;
+        });
+        
+        canvas.addEventListener('mousemove', (e) => {
+            if (!isDrawing || !startPoint) return;
+            const pos = getMousePos(e);
+            
+            currentRect = {
+                x1: Math.min(startPoint.x, pos.x),
+                y1: Math.min(startPoint.y, pos.y),
+                x2: Math.max(startPoint.x, pos.x),
+                y2: Math.max(startPoint.y, pos.y)
+            };
+            
+            drawCanvas();
+        });
+        
+        canvas.addEventListener('mouseup', (e) => {
+            if (!isDrawing || !startPoint) return;
+            const pos = getMousePos(e);
+            
+            const rect = {
+                x1: Math.round(Math.min(startPoint.x, pos.x)),
+                y1: Math.round(Math.min(startPoint.y, pos.y)),
+                x2: Math.round(Math.max(startPoint.x, pos.x)),
+                y2: Math.round(Math.max(startPoint.y, pos.y))
+            };
+            
+            if (rect.x2 - rect.x1 > 5 && rect.y2 - rect.y1 > 5) {
+                rectangles.push(rect);
+                updateRectanglesList();
+            }
+            
+            isDrawing = false;
+            startPoint = null;
+            currentRect = null;
+            drawCanvas();
+        });
+        
+        function addManualRectangle() {
+            const x1 = parseInt(document.getElementById('inputX1').value) || 0;
+            const y1 = parseInt(document.getElementById('inputY1').value) || 0;
+            const x2 = parseInt(document.getElementById('inputX2').value) || 0;
+            const y2 = parseInt(document.getElementById('inputY2').value) || 0;
+            
+            if (x1 >= x2 || y1 >= y2) {
+                alert('Tọa độ không hợp lệ! x2 phải lớn hơn x1 và y2 phải lớn hơn y1');
+                return;
+            }
+            
+            if (x1 < 0 || y1 < 0 || x2 > canvas.width || y2 > canvas.height) {
+                alert(`Tọa độ phải nằm trong khoảng:\nx: 0 - ${canvas.width}\ny: 0 - ${canvas.height}`);
+                return;
+            }
+            
+            const rect = { x1, y1, x2, y2 };
+            rectangles.push(rect);
+            updateRectanglesList();
+            drawCanvas();
+            
+            // Clear input fields
+            document.getElementById('inputX1').value = '';
+            document.getElementById('inputY1').value = '';
+            document.getElementById('inputX2').value = '';
+            document.getElementById('inputY2').value = '';
+        }
+        
+        function drawCanvas() {
+            if (!imageData) return;
+            
+            ctx.putImageData(imageData, 0, 0);
+            
+            rectangles.forEach((rect, index) => {
+                ctx.strokeStyle = '#3b82f6';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(rect.x1, rect.y1, rect.x2 - rect.x1, rect.y2 - rect.y1);
+                
+                ctx.fillStyle = 'rgba(59, 130, 246, 0.2)';
+                ctx.fillRect(rect.x1, rect.y1, rect.x2 - rect.x1, rect.y2 - rect.y1);
+                
+                ctx.fillStyle = '#3b82f6';
+                ctx.font = '14px Arial';
+                ctx.fillText(`#${index + 1}`, rect.x1 + 5, rect.y1 + 18);
+            });
+            
+            if (currentRect) {
+                ctx.strokeStyle = '#ef4444';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([5, 5]);
+                ctx.strokeRect(
+                    currentRect.x1,
+                    currentRect.y1,
+                    currentRect.x2 - currentRect.x1,
+                    currentRect.y2 - currentRect.y1
+                );
+                ctx.setLineDash([]);
+            }
+        }
+        
+        function updateRectanglesList() {
+            const list = document.getElementById('rectanglesList');
+            document.getElementById('rectCount').textContent = rectangles.length;
+            
+            if (rectangles.length === 0) {
+                list.innerHTML = '<p class="empty-state">Chưa có hình chữ nhật nào</p>';
+                return;
+            }
+            
+            list.innerHTML = rectangles.map((rect, index) => `
+                <div class="rect-item">
+                    <div class="rect-header">
+                        <span class="rect-id">#${index + 1}</span>
+                        <button class="btn-delete" onclick="deleteRectangle(${index})">✕</button>
+                    </div>
+                    <div class="rect-coords">
+                        x1: ${rect.x1}<br>
+                        y1: ${rect.y1}<br>
+                        x2: ${rect.x2}<br>
+                        y2: ${rect.y2}
+                    </div>
+                    <div class="rect-size">
+                        Kích thước: ${rect.x2 - rect.x1} × ${rect.y2 - rect.y1}
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        function deleteRectangle(index) {
+            rectangles.splice(index, 1);
+            updateRectanglesList();
+            drawCanvas();
+        }
+        
+        function clearAll() {
+            rectangles = [];
+            updateRectanglesList();
+            drawCanvas();
+        }
+        
+        function loadNewFile() {
+            document.getElementById('uploadArea').classList.remove('hidden');
+            document.getElementById('mainContent').classList.remove('active');
+            document.getElementById('fileInput').value = '';
+            rectangles = [];
+            imageData = null;
+            
+            // Clear manual input fields
+            document.getElementById('inputX1').value = '';
+            document.getElementById('inputY1').value = '';
+            document.getElementById('inputX2').value = '';
+            document.getElementById('inputY2').value = '';
+        }
+        
+        function copyToClipboard() {
+            if (rectangles.length === 0) {
+                alert('Chưa có hình chữ nhật nào để copy!');
+                return;
+            }
+            
+            const data = rectangles.map((rect, i) => ({
+                id: i + 1,
+                ...rect
+            }));
+            
+            navigator.clipboard.writeText(JSON.stringify(data, null, 2));
+            alert('Đã copy tọa độ vào clipboard!');
+        }
+        
+        // Allow Enter key to add rectangle
+        document.getElementById('inputY2').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                addManualRectangle();
+            }
+        });
+    </script>
+</body>
+</html>
