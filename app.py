@@ -111,7 +111,7 @@ def load_images_from_pdf(pdf_path: str) -> List[Image.Image]:
         for page_num in range(len(pdf_document)):
             page = pdf_document.load_page(page_num)
             # Convert page to image
-            mat = fitz.Matrix(2.0, 2.0)  # Increase resolution
+            mat = fitz.Matrix(1.0, 1.0)  # Giữ nguyên kích thước gốc để tọa độ chính xác
             pix = page.get_pixmap(matrix=mat)
             img_data = pix.tobytes("ppm")
             image = Image.open(BytesIO(img_data)).convert('RGB')

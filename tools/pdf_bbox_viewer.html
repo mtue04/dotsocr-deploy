@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF BBox Viewer - Vẽ Bounding Boxes từ JSON</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .upload-area {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .upload-section {
+            background: white;
+            border: 2px dashed #ccc;
+            border-radius: 8px;
+            padding: 40px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .upload-section:hover {
+            background: #fafafa;
+            border-color: #999;
+        }
+        
+        .upload-section h3 {
+            margin-bottom: 10px;
+            color: #333;
+        }
+        
+        .upload-section p {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .upload-area.hidden {
+            display: none;
+        }
+        
+        .main-content {
+            display: none;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+        }
+        
+        .main-content.active {
+            display: grid;
+        }
+        
+        .canvas-area {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .controls {
+            margin-bottom: 15px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        
+        .btn-toggle {
+            background: #10b981;
+            color: white;
+        }
+        
+        .btn-toggle:hover {
+            background: #059669;
+        }
+        
+        .btn-toggle.active {
+            background: #ef4444;
+        }
+        
+        .btn-toggle.active:hover {
+            background: #dc2626;
+        }
+        
+        .btn-new {
+            background: #6b7280;
+            color: white;
+        }
+        
+        .btn-new:hover {
+            background: #4b5563;
+        }
+        
+        .btn-download {
+            background: #3b82f6;
+            color: white;
+        }
+        
+        .btn-download:hover {
+            background: #2563eb;
+        }
+        
+        .canvas-wrapper {
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            overflow: auto;
+            max-height: 700px;
+        }
+        
+        canvas {
+            display: block;
+            max-width: 100%;
+        }
+        
+        .sidebar {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            max-height: 800px;
+            overflow-y: auto;
+        }
+        
+        .sidebar h2 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #333;
+        }
+        
+        .json-input-area {
+            background: #f0f9ff;
+            border: 1px solid #bfdbfe;
+            border-radius: 4px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .json-input-area h3 {
+            font-size: 14px;
+            margin-bottom: 10px;
+            color: #1e40af;
+        }
+        
+        .json-textarea {
+            width: 100%;
+            height: 200px;
+            padding: 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            resize: vertical;
+        }
+        
+        .json-textarea:focus {
+            outline: none;
+            border-color: #3b82f6;
+        }
+        
+        .bbox-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .bbox-item {
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 4px;
+            padding: 12px;
+            margin-bottom: 10px;
+        }
+        
+        .bbox-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .bbox-category {
+            font-weight: bold;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            color: white;
+        }
+        
+        .bbox-coords {
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.4;
+            color: #374151;
+        }
+        
+        .bbox-text {
+            font-size: 13px;
+            color: #6b7280;
+            margin-top: 5px;
+            font-style: italic;
+            max-height: 40px;
+            overflow: hidden;
+        }
+        
+        .empty-state {
+            color: #9ca3af;
+            font-size: 14px;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .help-text {
+            color: #6b7280;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+        
+        .demo-btn {
+            background: #8b5cf6;
+            color: white;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        
+        .demo-btn:hover {
+            background: #7c3aed;
+        }
+        
+        .parse-btn {
+            background: #10b981;
+            color: white;
+            width: 100%;
+            margin-top: 10px;
+        }
+        
+        .parse-btn:hover {
+            background: #059669;
+        }
+        
+        .status-message {
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+        
+        .status-success {
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #a7f3d0;
+        }
+        
+        .status-error {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #fca5a5;
+        }
+        
+        input[type="file"] {
+            display: none;
+        }
+        
+        .color-legend {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 8px;
+            margin-bottom: 15px;
+            font-size: 12px;
+        }
+        
+        .color-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .color-box {
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📄 PDF BBox Viewer - Vẽ Bounding Boxes từ JSON</h1>
+        
+        <div class="upload-area" id="uploadArea">
+            <div class="upload-section" id="pdfUpload">
+                <h3>📄 Upload PDF File</h3>
+                <p>Click để chọn file PDF</p>
+                <input type="file" id="pdfInput" accept=".pdf">
+            </div>
+            
+            <div class="upload-section" id="jsonUpload">
+                <h3>📝 Upload JSON File (Optional)</h3>
+                <p>Click để chọn file JSON hoặc dán vào bên dưới</p>
+                <input type="file" id="jsonInput" accept=".json">
+            </div>
+        </div>
+        
+        <div class="main-content" id="mainContent">
+            <div class="canvas-area">
+                <div class="controls">
+                    <button class="btn-toggle" id="toggleBtn" onclick="toggleBboxVisibility()">Ẩn BBox</button>
+                    <button class="btn-new" onclick="loadNewFile()">Tải file mới</button>
+                    <button class="btn-download" onclick="downloadImage()">Tải ảnh về</button>
+                </div>
+                
+                <div class="canvas-wrapper">
+                    <canvas id="canvas"></canvas>
+                </div>
+                
+                <p class="help-text">✅ Tọa độ bbox được giữ nguyên chính xác (không bị thay đổi bởi DPI)</p>
+            </div>
+            
+            <div class="sidebar">
+                <div class="json-input-area">
+                    <h3>📝 JSON Bbox Data</h3>
+                    <button class="demo-btn" onclick="loadDemoJSON()">Load JSON mẫu</button>
+                    <textarea class="json-textarea" id="jsonTextarea" placeholder="Dán JSON bbox data vào đây hoặc upload file JSON..."></textarea>
+                    <button class="parse-btn" onclick="parseJSON()">Vẽ BBox từ JSON</button>
+                    <div id="statusMessage"></div>
+                </div>
+                
+                <div class="color-legend">
+                    <div class="color-item"><div class="color-box" style="background: #E17055;"></div>Title</div>
+                    <div class="color-item"><div class="color-box" style="background: #74B9FF;"></div>Text</div>
+                    <div class="color-item"><div class="color-box" style="background: #6C5CE7;"></div>Section-header</div>
+                    <div class="color-item"><div class="color-box" style="background: #FD79A8;"></div>Table</div>
+                    <div class="color-item"><div class="color-box" style="background: #45B7D1;"></div>Formula</div>
+                    <div class="color-item"><div class="color-box" style="background: #FFD93D;"></div>Picture</div>
+                    <div class="color-item"><div class="color-box" style="background: #FF6B6B;"></div>Caption</div>
+                    <div class="color-item"><div class="color-box" style="background: #96CEB4;"></div>List-item</div>
+                    <div class="color-item"><div class="color-box" style="background: #4ECDC4;"></div>Footnote</div>
+                    <div class="color-item"><div class="color-box" style="background: #DDA0DD;"></div>Page-header</div>
+                    <div class="color-item"><div class="color-box" style="background: #FFEAA7;"></div>Page-footer</div>
+                </div>
+                
+                <h2>Bounding Boxes (<span id="bboxCount">0</span>)</h2>
+                
+                <div class="bbox-list" id="bboxList">
+                    <div class="empty-state">Chưa có bbox nào</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        
+        let canvas = document.getElementById('canvas');
+        let ctx = canvas.getContext('2d');
+        let bboxes = [];
+        let imageData = null;
+        let showBboxes = true;
+        
+        // Color mapping từ app.py
+        const categoryColors = {
+            'Caption': '#FF6B6B',
+            'Footnote': '#4ECDC4', 
+            'Formula': '#45B7D1',
+            'List-item': '#96CEB4',
+            'Page-footer': '#FFEAA7',
+            'Page-header': '#DDA0DD',
+            'Picture': '#FFD93D',
+            'Section-header': '#6C5CE7',
+            'Table': '#FD79A8',
+            'Text': '#74B9FF',
+            'Title': '#E17055'
+        };
+        
+        // Event listeners
+        document.getElementById('pdfUpload').addEventListener('click', () => {
+            document.getElementById('pdfInput').click();
+        });
+        
+        document.getElementById('jsonUpload').addEventListener('click', () => {
+            document.getElementById('jsonInput').click();
+        });
+        
+        document.getElementById('pdfInput').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file || file.type !== 'application/pdf') {
+                showStatus('Vui lòng chọn file PDF hợp lệ', 'error');
+                return;
+            }
+            await convertPDFToImage(file);
+        });
+        
+        document.getElementById('jsonInput').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file || file.type !== 'application/json') {
+                showStatus('Vui lòng chọn file JSON hợp lệ', 'error');
+                return;
+            }
+            
+            const text = await file.text();
+            document.getElementById('jsonTextarea').value = text;
+            parseJSON();
+        });
+        
+        async function convertPDFToImage(file) {
+            try {
+                const arrayBuffer = await file.arrayBuffer();
+                const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                const page = await pdf.getPage(1);
+                
+                // Giữ nguyên tỷ lệ gốc để tọa độ bbox không thay đổi
+                const viewport = page.getViewport({ scale: 1 });
+                
+                canvas.width = viewport.width;
+                canvas.height = viewport.height;
+                
+                await page.render({ canvasContext: ctx, viewport }).promise;
+                
+                imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                
+                document.getElementById('uploadArea').classList.add('hidden');
+                document.getElementById('mainContent').classList.add('active');
+                
+                showStatus(`PDF loaded successfully! Image size: ${canvas.width}x${canvas.height}`, 'success');
+                
+                // Auto-parse JSON if already present
+                const jsonText = document.getElementById('jsonTextarea').value.trim();
+                if (jsonText) {
+                    parseJSON();
+                }
+                
+            } catch (error) {
+                console.error('Lỗi chuyển đổi PDF:', error);
+                showStatus('Không thể chuyển đổi PDF. Vui lòng thử lại.', 'error');
+            }
+        }
+        
+        function parseJSON() {
+            const jsonText = document.getElementById('jsonTextarea').value.trim();
+            if (!jsonText) {
+                showStatus('Vui lòng nhập JSON data', 'error');
+                return;
+            }
+            
+            try {
+                const data = JSON.parse(jsonText);
+                
+                // Handle different JSON structures
+                let parsedBboxes = [];
+                if (Array.isArray(data)) {
+                    parsedBboxes = data;
+                } else if (data.layout) {
+                    parsedBboxes = data.layout;
+                } else if (data.results) {
+                    parsedBboxes = data.results;
+                } else if (data.annotations) {
+                    parsedBboxes = data.annotations;
+                } else {
+                    parsedBboxes = [data];
+                }
+                
+                // Validate and process bboxes
+                bboxes = parsedBboxes.filter(item => {
+                    return item.bbox && Array.isArray(item.bbox) && item.bbox.length === 4;
+                }).map((item, index) => ({
+                    id: index + 1,
+                    bbox: item.bbox.map(coord => Math.round(coord)),
+                    category: item.category || 'Unknown',
+                    text: item.text || '',
+                    color: categoryColors[item.category] || '#000000'
+                }));
+                
+                updateBboxList();
+                drawCanvas();
+                showStatus(`Đã load ${bboxes.length} bounding boxes`, 'success');
+                
+            } catch (error) {
+                showStatus(`Lỗi parse JSON: ${error.message}`, 'error');
+            }
+        }
+        
+        function drawCanvas() {
+            if (!imageData) return;
+            
+            // Restore original image
+            ctx.putImageData(imageData, 0, 0);
+            
+            if (!showBboxes) return;
+            
+            // Draw bboxes
+            bboxes.forEach((bbox, index) => {
+                const [x1, y1, x2, y2] = bbox.bbox;
+                const color = bbox.color;
+                
+                // Draw rectangle
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 1;
+                ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
+                
+                // Draw filled background
+                ctx.fillStyle = color + '20'; // Add transparency
+                ctx.fillRect(x1, y1, x2 - x1, y2 - y1);
+                
+                // Draw label
+                const label = bbox.category;
+                const fontSize = 5; // Giảm từ 14 xuống 10
+                ctx.font = `${fontSize}px Arial`;
+                
+                // Measure text
+                const textMetrics = ctx.measureText(label);
+                const textWidth = textMetrics.width;
+                const textHeight = fontSize;
+                
+                // Draw label background
+                const labelX = x1;
+                const labelY = Math.max(y1 - textHeight - 4, 0);
+                
+                ctx.fillStyle = color;
+                ctx.fillRect(labelX, labelY, textWidth + 8, textHeight + 4);
+                
+                // Draw label text
+                ctx.fillStyle = 'white';
+                ctx.fillText(label, labelX + 4, labelY + textHeight);
+            });
+        }
+        
+        function updateBboxList() {
+            const list = document.getElementById('bboxList');
+            document.getElementById('bboxCount').textContent = bboxes.length;
+            
+            if (bboxes.length === 0) {
+                list.innerHTML = '<div class="empty-state">Chưa có bbox nào</div>';
+                return;
+            }
+            
+            list.innerHTML = bboxes.map((bbox, index) => {
+                const [x1, y1, x2, y2] = bbox.bbox;
+                const width = x2 - x1;
+                const height = y2 - y1;
+                
+                return `
+                    <div class="bbox-item">
+                        <div class="bbox-header">
+                            <span class="bbox-category" style="background-color: ${bbox.color};">
+                                ${bbox.category}
+                            </span>
+                            <span style="color: #6b7280; font-size: 12px;">#${bbox.id}</span>
+                        </div>
+                        <div class="bbox-coords">
+                            [${x1}, ${y1}, ${x2}, ${y2}]<br>
+                            Size: ${width} × ${height}
+                        </div>
+                        ${bbox.text ? `<div class="bbox-text">"${bbox.text}"</div>` : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        function toggleBboxVisibility() {
+            showBboxes = !showBboxes;
+            const btn = document.getElementById('toggleBtn');
+            btn.textContent = showBboxes ? 'Ẩn BBox' : 'Hiện BBox';
+            btn.className = showBboxes ? 'btn-toggle' : 'btn-toggle active';
+            drawCanvas();
+        }
+        
+        function loadNewFile() {
+            document.getElementById('uploadArea').classList.remove('hidden');
+            document.getElementById('mainContent').classList.remove('active');
+            document.getElementById('pdfInput').value = '';
+            document.getElementById('jsonInput').value = '';
+            document.getElementById('jsonTextarea').value = '';
+            bboxes = [];
+            imageData = null;
+            showStatus('');
+        }
+        
+        function downloadImage() {
+            if (!imageData) {
+                showStatus('Chưa có ảnh để tải về', 'error');
+                return;
+            }
+            
+            const link = document.createElement('a');
+            link.download = 'pdf_with_bboxes.png';
+            link.href = canvas.toDataURL();
+            link.click();
+        }
+        
+        function loadDemoJSON() {
+            const demo = [
+                {
+                    "bbox": [100, 50, 400, 100],
+                    "category": "Title",
+                    "text": "Document Title Example"
+                },
+                {
+                    "bbox": [100, 120, 500, 300],
+                    "category": "Text",
+                    "text": "This is a sample text block that demonstrates how the bbox drawing works with proper coordinates."
+                },
+                {
+                    "bbox": [100, 320, 300, 400],
+                    "category": "Table",
+                    "text": "Sample table content"
+                },
+                {
+                    "bbox": [350, 320, 500, 400],
+                    "category": "Picture"
+                },
+                {
+                    "bbox": [100, 420, 400, 450],
+                    "category": "Caption",
+                    "text": "Figure 1: Example caption"
+                }
+            ];
+            
+            document.getElementById('jsonTextarea').value = JSON.stringify(demo, null, 2);
+        }
+        
+        function showStatus(message, type = '') {
+            const statusEl = document.getElementById('statusMessage');
+            if (!message) {
+                statusEl.innerHTML = '';
+                return;
+            }
+            
+            statusEl.innerHTML = `<div class="status-message ${type ? 'status-' + type : ''}">${message}</div>`;
+            
+            if (type === 'success') {
+                setTimeout(() => showStatus(''), 3000);
+            }
+        }
+    </script>
+</body>
+</html>
